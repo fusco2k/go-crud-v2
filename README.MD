@@ -1,8 +1,8 @@
-##go-crud-v2
+## go-crud-v2
 
 The basic purpose of this project is to solidify the usage of the mongodb driver on a primitive crud webapp
 
-#BASIC USAGE
+# BASIC USAGE
 
 Use this exported postman collection to generate the requests 
 
