@@ -3,20 +3,24 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/fusco2k/go-crud-v2/model"
+	"go.mongodb.org/mongo-driver/bson"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var client *mongo.Client
+var userC *mongo.Collection
 
 func main() {
 	//create a context for comunicate with mongodb
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 	//iniatiate the pointed client and connects to the mongo server
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
@@ -30,10 +34,11 @@ func main() {
 		cancel()
 		log.Fatal(err)
 	}
+	//assign a pointes collection
+	userC = client.Database("testdb").Collection("user")
 
-	fmt.Println("Mongo Connected")
-	//handling the redirects 
-	http.HandleFunc("/patient", func(w http.ResponseWriter, r *http.Request) {
+	//handling the redirects
+	http.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
 			getData(w, r)
@@ -46,19 +51,42 @@ func main() {
 }
 
 func getData(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	jsonOk, err := json.Marshal("ok")
+	var results []model.User
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	csr, err := userC.Find(ctx, bson.D{})
 	if err != nil {
+		cancel()
 		log.Fatal(err)
 	}
-	w.Write(jsonOk)
+	defer csr.Close(ctx)
+
+	for csr.Next(ctx) {
+		user := model.User{}
+		err = csr.Decode(&user)
+		if err != nil {
+			cancel()
+			log.Fatal(err)
+		}
+		results = append(results, user)
+	}
+	if err := csr.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	json.NewEncoder(w).Encode(results)
 }
 
 func postData(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	jsonOk, err := json.Marshal("ok")
-	if err != nil {
-		log.Fatal(err)
-	}
-	w.Write(jsonOk)
+	r.ParseForm()
+
+	user := model.User{}
+
+	json.NewDecoder(r.Body).Decode(&user)
+
+	userC.InsertOne(nil, user)
+
+	getData(w, r)
 }
