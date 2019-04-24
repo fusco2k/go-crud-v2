@@ -1,6 +1,6 @@
 package model
 
-//Patient basic model structure
+//Patient basic model structure with json tag
 type Patient struct {
-	Name string
+	Name string `json:"name"`
 }
