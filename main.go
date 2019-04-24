@@ -51,18 +51,19 @@ func main() {
 }
 
 func getData(w http.ResponseWriter, r *http.Request) {
+	//get the result model
 	var results []model.User
-
+	//set the working context
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-
+	//find query
 	csr, err := userC.Find(ctx, bson.D{})
 	if err != nil {
 		cancel()
 		log.Fatal(err)
 	}
 	defer csr.Close(ctx)
-
+	//get data from cursor
 	for csr.Next(ctx) {
 		user := model.User{}
 		err = csr.Decode(&user)
@@ -75,18 +76,26 @@ func getData(w http.ResponseWriter, r *http.Request) {
 	if err := csr.Err(); err != nil {
 		log.Fatal(err)
 	}
-
+	//respond with a json with all data
 	json.NewEncoder(w).Encode(results)
 }
 
 func postData(w http.ResponseWriter, r *http.Request) {
+	//parse the request form
 	r.ParseForm()
-
+	//initialize the decode model
 	user := model.User{}
-
+	//set the working context
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	//decode the json
 	json.NewDecoder(r.Body).Decode(&user)
-
-	userC.InsertOne(nil, user)
-
-	getData(w, r)
+	//insert the data on the collection
+	result, err := userC.InsertOne(ctx, user)
+	if err != nil {
+		cancel()
+		log.Fatal(err)
+	}
+	//respond with the inserted data id
+	json.NewEncoder(w).Encode(result.InsertedID)
 }
