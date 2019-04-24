@@ -44,6 +44,10 @@ func main() {
 			getData(w, r)
 		case "POST":
 			postData(w, r)
+		case "DELETE":
+			deleteData(w, r)
+		case "PUT":
+			updateData(w, r)
 		}
 	})
 	//creates the tpc server on port 8080 using the default
@@ -98,4 +102,44 @@ func postData(w http.ResponseWriter, r *http.Request) {
 	}
 	//respond with the inserted data id
 	json.NewEncoder(w).Encode(result.InsertedID)
+}
+
+func deleteData(w http.ResponseWriter, r *http.Request) {
+	//parse the request form
+	r.ParseForm()
+	//initialize the decode model
+	user := model.User{}
+	//set the working context
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	//decode the json
+	json.NewDecoder(r.Body).Decode(&user)
+	//insert the data on the collection
+	result, err := userC.DeleteOne(ctx, bson.M{"name": user.Name})
+	if err != nil {
+		cancel()
+		log.Fatal(err)
+	}
+	//respond with the count of users deleted
+	json.NewEncoder(w).Encode(result.DeletedCount)
+}
+
+func updateData(w http.ResponseWriter, r *http.Request) {
+	//parse the request form
+	r.ParseForm()
+	//initialize the decode model
+	user := []model.User{}
+	//set the working context
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	//decode the json
+	json.NewDecoder(r.Body).Decode(&user)
+	//update the data on the collection
+	result, err := userC.UpdateOne(ctx, bson.M{"name": user[0].Name}, bson.D{{"$set", bson.M{"name": user[1].Name}}})
+	if err != nil {
+		cancel()
+		log.Fatal(err)
+	}
+	//respond with the number of modified users
+	json.NewEncoder(w).Encode(result.ModifiedCount)
 }
